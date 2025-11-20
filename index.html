@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RCM Audit Tool</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+body { font-family: 'Roboto', sans-serif; background:#f8f9fa; margin:0; padding:0; }
+.container { max-width: 900px; margin:20px auto; padding:20px; background:#fff; border-radius:10px; box-shadow:0 0 10px rgba(0,0,0,0.1);}
+h1,h2 { color:#007bff; text-align:center; }
+.step { display:none; }
+.step.active { display:block; }
+input[type=number] { padding:10px; border-radius:8px; border:1px solid #ccc; width:100%; margin-bottom:15px; }
+button { background-color:#007bff; color:#fff; border:none; padding:12px 25px; border-radius:8px; cursor:pointer; margin-right:10px; }
+button:hover { background-color:#0056b3; }
+#loader { font-size:24px; text-align:center; margin-top:20px; display:none; color:#007bff; }
+#report { margin-top:30px; display:none; }
+table { width:100%; border-collapse:collapse; margin-top:20px; }
+table, th, td { border:1px solid #ccc; }
+th, td { padding:8px; text-align:center; }
+</style>
+</head>
+<body>
+<div class="container">
+<h1>Medical Billing RCM Audit Tool</h1>
+
+<div id="form-container">
+  <div class="step active" id="step1">
+    <h2>Step 1: Claims</h2>
+    <label>Claims Transmitted:</label>
+    <input type="number" id="claims" required>
+    <label>Avg Reimbursement:</label>
+    <input type="number" id="reimbursement" required>
+    <label>Rejected Claims %:</label>
+    <input type="number" id="rejected" required>
+    <button onclick="nextStep(2)">Next</button>
+  </div>
+
+  <div class="step" id="step2">
+    <h2>Step 2: Accounts Receivable</h2>
+    <label>AR 0-30 days:</label>
+    <input type="number" id="ar0">
+    <label>AR 31-60 days:</label>
+    <input type="number" id="ar30">
+    <label>AR 61-90 days:</label>
+    <input type="number" id="ar60">
+    <label>AR 91-120 days:</label>
+    <input type="number" id="ar90">
+    <label>AR 120+ days:</label>
+    <input type="number" id="ar120">
+    <button onclick="nextStep(1)">Back</button>
+    <button onclick="nextStep(3)">Next</button>
+  </div>
+
+  <div class="step" id="step3">
+    <h2>Step 3: Reimbursement Analytics</h2>
+    <label>Average Reimbursement Period (days):</label>
+    <input type="number" id="arp">
+    <button onclick="nextStep(2)">Back</button>
+    <button onclick="nextStep(4)">Next</button>
+  </div>
+
+  <div class="step" id="step4">
+    <h2>Step 4: Charges Submission</h2>
+    <label>Patients per day:</label>
+    <input type="number" id="patients">
+    <label>Charges per day:</label>
+    <input type="number" id="charges">
+    <label>Average Charge Value:</label>
+    <input type="number" id="avgcharge">
+    <button onclick="nextStep(3)">Back</button>
+    <button onclick="submitForm()">Submit</button>
+  </div>
+</div>
+
+<div id="loader">AI is calculating...</div>
+
+<div id="report">
+<h2>RCM Audit Report</h2>
+<canvas id="reportChart" width="400" height="200"></canvas>
+
+<table>
+<thead>
+<tr>
+<th>Metric</th><th>Value</th><th>Benchmark</th>
+</tr>
+</thead>
+<tbody>
+<tr><td>Claims Rejected %</td><td id="r_claims"></td><td>5%</td></tr>
+<tr><td>Average Reimbursement Period</td><td id="r_arp"></td><td>21-25 days</td></tr>
+<tr><td>AR 0-30</td><td id="r_ar0"></td><td>MGMA Std</td></tr>
+<tr><td>AR 31-60</td><td id="r_ar30"></td><td>MGMA Std</td></tr>
+<tr><td>AR 61-90</td><td id="r_ar60"></td><td>MGMA Std</td></tr>
+<tr><td>AR 91-120</td><td id="r_ar90"></td><td>MGMA Std</td></tr>
+<tr><td>AR 120+</td><td id="r_ar120"></td><td>MGMA Std</td></tr>
+<tr><td>Charges Lost per day</td><td id="r_loss"></td><td>-</td></tr>
+</tbody>
+</table>
+
+</div>
+
+</div>
+
+<script>
+function nextStep(step){
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  document.getElementById('step'+step).classList.add('active');
+}
+
+function submitForm(){
+  document.getElementById('form-container').style.display='none';
+  document.getElementById('loader').style.display='block';
+
+  setTimeout(function(){
+    document.getElementById('loader').style.display='none';
+    document.getElementById('report').style.display='block';
+
+    // Fill report table
+    document.getElementById('r_claims').innerText=document.getElementById('rejected').value+'%';
+    document.getElementById('r_arp').innerText=document.getElementById('arp').value+' days';
+    document.getElementById('r_ar0').innerText=document.getElementById('ar0').value;
+    document.getElementById('r_ar30').innerText=document.getElementById('ar30').value;
+    document.getElementById('r_ar60').innerText=document.getElementById('ar60').value;
+    document.getElementById('r_ar90').innerText=document.getElementById('ar90').value;
+    document.getElementById('r_ar120').innerText=document.getElementById('ar120').value;
+    const loss = document.getElementById('charges').value * document.getElementById('avgcharge').value;
+    document.getElementById('r_loss').innerText='$'+loss;
+
+    // Chart.js
+    const ctx=document.getElementById('reportChart').getContext('2d');
+    new Chart(ctx,{
+      type:'bar',
+      data:{
+        labels:['Claims Rejected %','ARP','AR 0-30','AR 31-60','AR 61-90','AR 91-120','AR 120+','Charges Lost'],
+        datasets:[{
+          label:'RCM Metrics',
+          data:[
+            parseFloat(document.getElementById('rejected').value),
+            parseFloat(document.getElementById('arp').value),
+            parseFloat(document.getElementById('ar0').value),
+            parseFloat(document.getElementById('ar30').value),
+            parseFloat(document.getElementById('ar60').value),
+            parseFloat(document.getElementById('ar90').value),
+            parseFloat(document.getElementById('ar120').value),
+            parseFloat(loss)
+          ],
+          backgroundColor:'rgba(54,162,235,0.6)'
+        }]
+      },
+      options:{responsive:true, scales:{y:{beginAtZero:true}}}
+    });
+
+  }, 4000); // AI simulation 4 sec
+}
+</script>
+
+</body>
+</html>
